@@ -1,4 +1,4 @@
-# Gmail Daily Digest
+# Mail Daily Digest
 
 A local Go binary that organizes one or more **Gmail and Outlook** inboxes: it
 trashes junk, labels/categorizes and archives the rest by category, and writes
@@ -22,7 +22,8 @@ folder).
 
 For each configured account, on every run:
 
-1. Exchange the stored **refresh token** for a fresh access token (Google OAuth).
+1. Exchange the stored **refresh token** for a fresh access token (Google OAuth
+   for Gmail, Microsoft identity platform for Outlook).
 2. List **fresh inbox mail** the organizer has not touched (every label it
    manages is excluded, so re-runs are idempotent).
 3. Apply the **sender list** before paying for any inference (all skip the LLM):
@@ -46,10 +47,20 @@ Single-email classification (vs the 25-per-prompt batches the Gemini version
 used) is the main quality lever for a small local model: a 7B model is far
 more reliable reasoning about one message than tracking 25 ids in one response.
 
+Two rules the pipeline relies on:
+
+- **Self-sent mail is never touched by the model.** Anything from one of the
+  configured accounts' own addresses (notably the digest email itself) is
+  labeled `Pessoais` and skipped: it is never trashed, classified or
+  auto-learned. A small model has been seen calling the digest itself `LIXO`
+  and learning the user's own address into SOFT.
+- **One bad message or account never aborts a run.** An unreadable message is
+  skipped, and a failing account is logged while the others still run.
+
 ## Why local
 
 - **Zero cost / zero quota.** No Gemini key, no per-call billing, no rate limits.
-- **Privacy.** Email content never leaves the machine; only Gmail API calls go out.
+- **Privacy.** Email content never leaves the machine; only Gmail API / Microsoft Graph calls go out.
 - **Public repo, zero secrets.** Nothing sensitive lives in source. The runtime
   config (OAuth client + per-account refresh tokens + learned senders) lives in
   git-ignored files reconstructed locally by `scripts/bootstrap-config.sh`.
@@ -57,7 +68,7 @@ more reliable reasoning about one message than tracking 25 ids in one response.
 ## Project structure
 
 ```
-gmail-daily-digest/
+mail-daily-digest/
 ├── main.go                       # entry point + run modes
 ├── internal/
 │   ├── config/                   # config.json loader + two-tier blocklist
@@ -121,7 +132,7 @@ go run . -reset                # clear counters, start a fresh period
 go run . -promote spam@x.com   # move a sender from SOFT to HARD (auto-trash)
 ```
 
-Build a binary if you prefer: `go build -o gmail-daily-digest .`
+Build a binary if you prefer: `go build -o mail-daily-digest .`
 
 ### Outlook accounts (Microsoft Graph)
 
@@ -143,12 +154,30 @@ Outlook accounts are decoupled from mail-cli and authenticate separately:
    ```
    It prints a URL + code; sign in and approve. The rotating refresh token is
    saved to `outlook_token_dir/outlook-token-<name>.json` (default:
-   `~/.config/gmail-daily-digest`, **outside** the repo; `outlook-token-*.json`
+   `~/.config/mail-daily-digest`, **outside** the repo; `outlook-token-*.json`
    is git-ignored). From then on it auto-rotates each run.
 
 `MailboxSettings.ReadWrite` is only used to register the category names as
 Outlook **master categories** (so they show with a color); message tagging,
 move and trash work with `Mail.ReadWrite` alone.
+
+Microsoft Graph behaviors the Outlook client works around:
+
+- **No search syntax.** The Gmail query is ignored; the client lists the
+  Focused inbox newest-first and skips messages that already carry a managed
+  category (the equivalent of `in:inbox primary` plus label exclusion).
+- **`InefficientFilter`.** Graph rejects `$filter` on `inferenceClassification`
+  combined with `$orderby=receivedDateTime`. Newest-first ordering matters for
+  the `max_emails_per_run` cap, so the client keeps `$orderby` and filters
+  Focused client-side.
+- **Escape the whole query.** A raw space in `$orderby` produces a malformed
+  request line and an HTML 400, so the query is built with `url.Values`.
+- **Category before move.** Moving a message to Archive changes its id, so the
+  category PATCH always runs first. The PATCH overwrites existing categories
+  (fresh inbox mail rarely carries user ones).
+- **409 on category create is the idempotent case.** Any other error (e.g. 403
+  from a missing `MailboxSettings.ReadWrite` scope) fails that account's pass
+  instead of being swallowed.
 
 ### Report delivery
 
@@ -169,7 +198,9 @@ written):
 The email and webhook secret can also be injected via the `REPORT_EMAIL`,
 `ARGUS_WEBHOOK_URL` and `ARGUS_WEBHOOK_SECRET` env vars (preferred inside
 Docker). Both channels are best-effort: a delivery failure is logged and never
-blocks the period reset. The digest lists the SOFT senders seen this period as
+blocks the period reset, otherwise a transient SMTP/webhook error would replay
+the same window forever. The webhook secret is appended to
+`argus_webhook_url` as the last path segment. The digest lists the SOFT senders seen this period as
 promotion candidates so you can `-promote` the confirmed junk to HARD.
 
 ## Docker
@@ -203,12 +234,12 @@ env vars if your config uses non-default paths.
 ## Scheduling
 
 The binary is stateless between runs (state lives in `state.json`), so schedule
-it however you like - e.g. a `cron` entry running the organizer hourly and the
-report twice a day:
+it however you like - e.g. a `cron` entry running the organizer and the report
+twice a day:
 
 ```cron
-0 * * * *  cd ~/repos/gmail-daily-digest && /usr/local/bin/ollama serve >/dev/null 2>&1; ./gmail-daily-digest
-40 7,19 * * * cd ~/repos/gmail-daily-digest && ./gmail-daily-digest -report
+0 7,19 * * * cd ~/repos/mail-daily-digest && /usr/local/bin/ollama serve >/dev/null 2>&1; ./mail-daily-digest
+30 7,19 * * * cd ~/repos/mail-daily-digest && ./mail-daily-digest -report
 ```
 
 (Ensure `ollama serve` is running; the organizer fails fast with a clear
@@ -216,9 +247,9 @@ message if Ollama or the model is unreachable.)
 
 **On macOS, prefer `launchd` over `cron`.** macOS `cron` does not fire while
 the machine is asleep and never replays a missed slot, so a laptop that sleeps
-through 07:40 silently loses that report. `launchd` with `StartCalendarInterval`
+through 07:30 silently loses that report. `launchd` with `StartCalendarInterval`
 runs a missed calendar job once on wake. Ready-to-install plists (organize
-hourly + report at 07:40/19:40, run through Docker) and the install steps live
+at 07:00/19:00 + report at 07:30/19:30, run through Docker) and the install steps live
 in `scripts/launchd/` - see `scripts/launchd/README.md`.
 
 ## The sender blocklist
@@ -233,8 +264,9 @@ mail-cli seed):
 - **SOFT** - get the `Revisar` label for manual triage instead of the trash.
   The organizer **auto-learns** any LLM-decided `LIXO` sender into SOFT (not
   HARD), so the next email from them is reviewed rather than silently dropped.
-  Promote a sender to HARD with `gmail-daily-digest -promote <addr>` once you
-  trust it as pure junk (the period report suggests candidates).
+  Promote a sender to HARD with `mail-daily-digest -promote <addr>` once you
+  trust it as pure junk (the period report suggests candidates). `-promote`
+  and the SOFT auto-learn are the only writers to the blocklist file.
 
 Matching is a case-insensitive substring test against the `From` header.
 

@@ -1,10 +1,3 @@
-// Package classify wraps a local Ollama model to categorize one email at
-// a time. Single-email classification (vs the 25-per-prompt batches the
-// Gemini version used) is the main quality lever for a small local model:
-// the 7B model is far more reliable when it reasons about one message and
-// emits one constrained JSON object than when it has to track 25 ids in a
-// single response. Ollama structured outputs (the `format` JSON schema)
-// pin the shape so we never parse free-form text.
 package classify
 
 import (
@@ -16,14 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/mailbox"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/mailbox"
 )
 
-// Categories are the only labels the model may emit. They double as Gmail
-// label names (except LIXO, which trashes).
 var Categories = []string{"LIXO", "CONTAS", "NEWSLETTER", "URGENTE", "PESSOAL", "DOCUMENTO", "OUTROS"}
 
-// Decision is the per-email verdict.
 type Decision struct {
 	MessageID string `json:"-"`
 	Category  string `json:"category"`
@@ -31,7 +21,6 @@ type Decision struct {
 	Alert     string `json:"alert"`
 }
 
-// Classifier holds the Ollama connection and per-account context.
 type Classifier struct {
 	endpoint     string
 	model        string
@@ -39,7 +28,6 @@ type Classifier struct {
 	http         *http.Client
 }
 
-// New builds a Classifier. endpoint is the Ollama base URL.
 func New(endpoint, model string, maxBodyChars int) *Classifier {
 	return &Classifier{
 		endpoint:     strings.TrimRight(endpoint, "/"),
@@ -49,7 +37,6 @@ func New(endpoint, model string, maxBodyChars int) *Classifier {
 	}
 }
 
-// schema is the Ollama structured-output JSON schema pinning the response.
 var schema = map[string]any{
 	"type": "object",
 	"properties": map[string]any{
@@ -102,7 +89,6 @@ EXEMPLOS:
 
 reason: no máximo uma frase curta. alert: só quando URGENTE ou vencimento nas próximas 72h, senão deixe vazio.`
 
-// Classify returns the Decision for a single message.
 func (c *Classifier) Classify(ctx context.Context, accountName, accountEmail string, m mailbox.Message) (Decision, error) {
 	user := c.renderEmail(accountName, accountEmail, m)
 
@@ -185,8 +171,6 @@ func normalizeCategory(cat string) string {
 	return "OUTROS"
 }
 
-// Ping checks Ollama is reachable and the model is present, so a run fails
-// fast with a clear message instead of erroring per-email.
 func (c *Classifier) Ping(ctx context.Context) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint+"/api/tags", nil)
 	if err != nil {

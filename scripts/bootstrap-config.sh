@@ -76,8 +76,8 @@ cfg = {
     "accounts": accounts,
     "ollama": {"endpoint": "http://localhost:11434", "model": model},
     "blocklist_path": "~/.config/mail-cli/organizer-blocklist.json",
-    "state_path": "~/.config/gmail-daily-digest/state.json",
-    "report_dir": "~/.config/gmail-daily-digest/reports",
+    "state_path": "~/.config/mail-daily-digest/state.json",
+    "report_dir": "~/.config/mail-daily-digest/reports",
     "max_emails_per_run": 80,
     "max_body_chars": 1200,
 }

@@ -2,6 +2,7 @@ package deliver
 
 import (
 	"encoding/json"
+	"html"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -46,16 +47,14 @@ func TestEmail_RendersAndSends(t *testing.T) {
 	if !fs.called {
 		t.Fatal("Send was not called")
 	}
-	// Promotion candidates must be deduped and the empty one dropped.
+
 	if strings.Count(fs.body, "spam@x.com") != 1 {
 		t.Errorf("expected spam@x.com once, body=%s", fs.body)
 	}
 	if !strings.Contains(fs.body, "promo@y.com") {
 		t.Errorf("missing promo@y.com candidate")
 	}
-	// The hint is HTML-escaped in the email (<addr> -> &lt;addr&gt;); assert
-	// on the stable, escape-free prefix.
-	if !strings.Contains(fs.body, "gmail-daily-digest -promote") {
+	if !strings.Contains(fs.body, html.EscapeString(promoteHint)) {
 		t.Errorf("missing promote hint, body=%s", fs.body)
 	}
 	if !strings.Contains(fs.subject, "Gmail Organizer") {

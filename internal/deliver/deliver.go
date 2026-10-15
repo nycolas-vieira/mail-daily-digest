@@ -1,9 +1,3 @@
-// Package deliver pushes the period digest out of the box on the two
-// channels the user asked for: an HTML email to themselves and a realtime
-// event to Argus/Echo (which surfaces it on Telegram). Both channels are
-// best-effort and optional: a delivery failure is logged by the caller and
-// never aborts the report run, and an unconfigured channel is simply
-// skipped. The markdown file in report_dir remains the source of truth.
 package deliver
 
 import (
@@ -15,35 +9,28 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/gmail"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/gmail"
 )
 
-// Sender is the subset of *gmail.Client deliver needs (lets the email
-// channel be exercised without a live OAuth client in tests).
 type Sender interface {
 	Send(from, to, subject, htmlBody string) error
 }
 
-// Summary is the period digest distilled to the few numbers and lists the
-// email + Echo message render. Built by the caller from report.State and
-// the blocklist counts.
 type Summary struct {
 	PeriodStart    time.Time
 	PeriodEnd      time.Time
 	TrashedTotal   int
-	TrashedHard    int // silent HARD-blocklist trashes
+	TrashedHard    int
 	LabeledTotal   int
-	RevisarCount   int      // emails that got the "Revisar" label this period
-	RevisarSenders []string // deduped SOFT-matched senders this period (promotion candidates)
-	SoftListTotal  int      // current SOFT list size
-	HardListTotal  int      // current HARD list size (includes builtins)
+	RevisarCount   int
+	RevisarSenders []string
+	SoftListTotal  int
+	HardListTotal  int
 	Alerts         []string
 }
 
-// promoteHint is the exact CLI the user runs to act on a candidate.
-const promoteHint = "gmail-daily-digest -config ~/repos/gmail-daily-digest/config.json -promote <addr>"
+const promoteHint = "mail-daily-digest -config ~/repos/mail-daily-digest/config.json -promote <addr>"
 
-// Email renders the digest as HTML and mails it from->to via the Gmail API.
 func Email(s Sender, from, to string, sum Summary) error {
 	subject := fmt.Sprintf("Gmail Organizer - %s", sum.PeriodEnd.Format("02/01 15:04"))
 	return s.Send(from, to, subject, emailHTML(sum))
@@ -93,9 +80,6 @@ func emailHTML(sum Summary) string {
 	return b.String()
 }
 
-// EchoPush posts the digest to the argus-webhook gmail-organizer endpoint so
-// Echo surfaces it on Telegram. webhookURL is the endpoint base (without the
-// secret); the secret is appended as the last path segment.
 func EchoPush(webhookURL, secret string, sum Summary) error {
 	url := strings.TrimRight(webhookURL, "/") + "/" + secret
 	body := map[string]any{
@@ -141,5 +125,4 @@ func dedupe(in []string) []string {
 	return out
 }
 
-// ensure *gmail.Client satisfies Sender at compile time.
 var _ Sender = (*gmail.Client)(nil)

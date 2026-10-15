@@ -1,7 +1,3 @@
-// Package organizer is the per-account pipeline: fetch fresh inbox mail,
-// apply the two-tier sender shortcuts (HARD trash / SOFT review), classify
-// the rest with the local model, then act (trash or label+archive) and
-// record stats. It is the Go port of processAccount_ from Code.gs.
 package organizer
 
 import (
@@ -10,20 +6,16 @@ import (
 	"log"
 	"strings"
 
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/classify"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/config"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/gmail"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/mailbox"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/outlook"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/report"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/classify"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/config"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/gmail"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/mailbox"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/outlook"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/report"
 )
 
-// RevisarLabel is the Gmail label applied to SOFT-listed senders for
-// manual triage.
 const RevisarLabel = "Revisar"
 
-// labelNames maps a model category to its Gmail label. LIXO is absent: it
-// trashes instead of labeling.
 var labelNames = map[string]string{
 	"CONTAS":     "Contas",
 	"NEWSLETTER": "Newsletter",
@@ -33,8 +25,6 @@ var labelNames = map[string]string{
 	"OUTROS":     "Outros",
 }
 
-// archiveCategories leave the inbox (INBOX removed) once labeled; the rest
-// stay because they need the user's eyes (URGENTE, PESSOAL, REVISAR).
 var archiveCategories = map[string]bool{
 	"NEWSLETTER": true,
 	"OUTROS":     true,
@@ -42,8 +32,6 @@ var archiveCategories = map[string]bool{
 	"CONTAS":     true,
 }
 
-// AllLabelNames is every label the organizer manages (category labels +
-// Revisar). Used for ensure-exists and the idempotency query exclusion.
 func AllLabelNames() []string {
 	names := make([]string, 0, len(labelNames)+1)
 	for _, n := range labelNames {
@@ -53,17 +41,15 @@ func AllLabelNames() []string {
 	return names
 }
 
-// Organizer holds the shared dependencies for a run.
 type Organizer struct {
 	cfg    *config.Config
 	bl     *config.Blocklist
 	st     *report.State
 	cls    *classify.Classifier
 	dryRun bool
-	own    map[string]bool // lowercased addresses of the user's own accounts
+	own    map[string]bool
 }
 
-// New builds an Organizer.
 func New(cfg *config.Config, bl *config.Blocklist, st *report.State, cls *classify.Classifier, dryRun bool) *Organizer {
 	own := make(map[string]bool, len(cfg.Accounts))
 	for _, a := range cfg.Accounts {
@@ -74,16 +60,10 @@ func New(cfg *config.Config, bl *config.Blocklist, st *report.State, cls *classi
 	return &Organizer{cfg: cfg, bl: bl, st: st, cls: cls, dryRun: dryRun, own: own}
 }
 
-// isOwn reports whether addr is one of the user's own account addresses.
-// Self-sent mail (notably the organizer's own report email) must never be
-// trashed, classified, or auto-learned - a small model has been seen calling
-// the digest itself LIXO and learning the user's address into SOFT.
 func (o *Organizer) isOwn(addr string) bool {
 	return o.own[strings.ToLower(strings.TrimSpace(addr))]
 }
 
-// Run processes every configured account, accumulating into State. One
-// account failing does not abort the others.
 func (o *Organizer) Run(ctx context.Context) {
 	for _, acct := range o.cfg.Accounts {
 		if err := o.processAccount(ctx, acct); err != nil {
@@ -93,7 +73,6 @@ func (o *Organizer) Run(ctx context.Context) {
 	}
 }
 
-// newClient builds the right mailbox client for an account's provider.
 func (o *Organizer) newClient(acct config.Account) (mailbox.Client, error) {
 	switch acct.Provider {
 	case "outlook":
@@ -116,8 +95,6 @@ func (o *Organizer) processAccount(ctx context.Context, acct config.Account) err
 		return err
 	}
 
-	// Fresh inbox mail we have not touched: exclude every label we manage
-	// so re-runs are idempotent.
 	var exclusions []string
 	for _, n := range AllLabelNames() {
 		exclusions = append(exclusions, "-label:"+quoteLabel(n))
@@ -133,7 +110,6 @@ func (o *Organizer) processAccount(ctx context.Context, acct config.Account) err
 		return nil
 	}
 
-	// Hydrate + apply sender shortcuts before paying the model.
 	var toClassify []mailbox.Message
 	for _, id := range ids {
 		m := client.GetMessage(id)
@@ -143,15 +119,11 @@ func (o *Organizer) processAccount(ctx context.Context, acct config.Account) err
 		from := strings.ToLower(m.Header("From"))
 		switch {
 		case o.isOwn(extractAddr(from)):
-			// Self-sent mail (e.g. the digest email): keep it, label PESSOAL
-			// for idempotency, never pay the model or auto-learn the address.
 			if id := labelMap[labelNames["PESSOAL"]]; id != "" {
 				o.act(client, "label:"+labelNames["PESSOAL"], m, acct, false, id)
 			}
 			log.Printf("[%s] self-mail (skip LLM) %s", acct.Name, extractAddr(from))
 		case o.bl.IsPriority(from):
-			// Known-important sender: force URGENTE (stays in inbox), raise an
-			// alert, skip the model. Wins over Hard so it is never trashed.
 			o.act(client, "label:"+labelNames["URGENTE"], m, acct, false, labelMap[labelNames["URGENTE"]])
 			o.st.AddAlert(fmt.Sprintf("%s: email de %s", acct.Name, extractAddr(from)))
 			log.Printf("[%s] priority->URGENTE %s", acct.Name, from)
@@ -167,7 +139,6 @@ func (o *Organizer) processAccount(ctx context.Context, acct config.Account) err
 		}
 	}
 
-	// Classify the remainder one email at a time.
 	for _, m := range toClassify {
 		d, err := o.cls.Classify(ctx, acct.Name, acct.Email, m)
 		if err != nil {
@@ -200,12 +171,9 @@ func (o *Organizer) applyDecision(client mailbox.Client, m mailbox.Message, acct
 	}
 }
 
-// learnSoft auto-learns an LLM-decided LIXO sender into the SOFT tier so
-// the next email from them is reviewed, not silently trashed. In dry-run
-// it only reports what it would learn (no mutation, no file write).
 func (o *Organizer) learnSoft(acct config.Account, from string) {
 	if o.isOwn(extractAddr(from)) {
-		return // never learn the user's own address into the blocklist
+		return
 	}
 	if o.dryRun {
 		if addr := o.bl.PreviewLearnSoft(from); addr != "" {
@@ -225,8 +193,6 @@ func (o *Organizer) learnSoft(acct config.Account, from string) {
 	}
 }
 
-// act performs (or, in dry-run, simulates) one action and records stats.
-// kind is "trash", "revisar", or "label:<Name>".
 func (o *Organizer) act(client mailbox.Client, kind string, m mailbox.Message, acct config.Account, hard bool, labelID string) {
 	switch {
 	case kind == "trash":
@@ -278,9 +244,6 @@ func truncate(s string, n int) string {
 	return s
 }
 
-// extractAddr pulls the bare address out of a "Name <addr>" header (already
-// lowercased upstream), or returns the trimmed input when there is no angle
-// bracket. Mirrors config.extractAddr; kept local to avoid exporting it.
 func extractAddr(fromHeader string) string {
 	low := strings.ToLower(strings.TrimSpace(fromHeader))
 	if i := strings.IndexByte(low, '<'); i >= 0 {

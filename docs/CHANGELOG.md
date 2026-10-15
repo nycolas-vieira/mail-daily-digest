@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **:date: ORDER**: Entries are organized in **descending chronological order** (newest first).
 
+## [4.0.0] - 2026-10-14 - rename para mail-daily-digest
+
+### Changed
+
+- **Breaking**: projeto renomeado de `gmail-daily-digest` para `mail-daily-digest`, já que atende
+  Gmail e Outlook. Muda o repo no GitHub, o módulo Go, o binário, a imagem Docker, o diretório de
+  dados (`~/.config/mail-daily-digest`), o log (`~/.local/logs/mail-daily-digest.log`) e os launch
+  agents (`com.nyc.mail-digest.organize` / `.report`). Instalação existente precisa mover o
+  diretório de dados, ajustar os caminhos do `config.json` e reinstalar os plists.
+- `scripts/run-organizer.sh` resolve o repo pelo próprio caminho e os plists usam o placeholder
+  `__HOME__`, renderizado na instalação: o repo não carrega mais caminho absoluto de máquina.
+- README atualizado para o Outlook (auth e Microsoft Graph) e para a cadência real de 2x/dia.
+
+### Fixed
+
+- `TestEmail_RendersAndSends` voltou a passar: o hint de `-promote` ganhou `-config` e o teste
+  ainda procurava o prefixo antigo.
+
 ## [3.3.2] - 2026-09-18 - roda no colima, caminho mail-cli
 
 ### Fixed

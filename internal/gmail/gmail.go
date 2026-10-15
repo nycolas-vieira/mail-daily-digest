@@ -1,7 +1,3 @@
-// Package gmail is a thin client over the Gmail REST API plus the OAuth
-// refresh-token exchange. It mirrors the subset of calls the organizer
-// used in the Apps Script version: list, get (full), trash, modify
-// (labels + archive) and label ensure/create.
 package gmail
 
 import (
@@ -15,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/mailbox"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/mailbox"
 )
 
 const (
@@ -23,15 +19,11 @@ const (
 	apiBase  = "https://gmail.googleapis.com/gmail/v1/users/me"
 )
 
-// Client talks to one account's mailbox with a short-lived access token.
 type Client struct {
 	http        *http.Client
 	accessToken string
 }
 
-// NewClient exchanges a refresh token for an access token and returns a
-// ready client. Fails loudly on any OAuth error - a bad token must not be
-// papered over.
 func NewClient(clientID, clientSecret, refreshToken string) (*Client, error) {
 	hc := &http.Client{Timeout: 60 * time.Second}
 	form := url.Values{
@@ -63,13 +55,11 @@ func NewClient(clientID, clientSecret, refreshToken string) (*Client, error) {
 	return &Client{http: hc, accessToken: tok.AccessToken}, nil
 }
 
-// Header holds one MIME header.
 type Header struct {
 	Name  string `json:"name"`
 	Value string `json:"value"`
 }
 
-// Part is a node of the MIME tree.
 type Part struct {
 	MimeType string   `json:"mimeType"`
 	Headers  []Header `json:"headers"`
@@ -79,8 +69,6 @@ type Part struct {
 	Parts []Part `json:"parts"`
 }
 
-// Message is the subset of a Gmail message the organizer needs. It satisfies
-// mailbox.Message.
 type Message struct {
 	RawID        string   `json:"id"`
 	InternalDate string   `json:"internalDate"`
@@ -88,10 +76,8 @@ type Message struct {
 	Payload      Part     `json:"payload"`
 }
 
-// ID is the stable message id (mailbox.Message).
 func (m *Message) ID() string { return m.RawID }
 
-// Header returns the named header value (case-insensitive), or "".
 func (m *Message) Header(name string) string {
 	name = strings.ToLower(name)
 	for _, h := range m.Payload.Headers {
@@ -102,7 +88,6 @@ func (m *Message) Header(name string) string {
 	return ""
 }
 
-// Date returns the message internalDate as a time, or zero on parse error.
 func (m *Message) Date() time.Time {
 	ms, err := strconv.ParseInt(m.InternalDate, 10, 64)
 	if err != nil {
@@ -111,8 +96,6 @@ func (m *Message) Date() time.Time {
 	return time.UnixMilli(ms)
 }
 
-// BodyText returns up to maxChars of the best-effort plain-text body
-// (text/plain preferred, HTML stripped as fallback).
 func (m *Message) BodyText(maxChars int) string {
 	var plain, html strings.Builder
 	var walk func(p *Part)
@@ -139,7 +122,6 @@ func (m *Message) BodyText(maxChars int) string {
 	return text
 }
 
-// ListMessageIDs returns up to maxResults message IDs matching query.
 func (c *Client) ListMessageIDs(query string, maxResults int) ([]string, error) {
 	var ids []string
 	pageToken := ""
@@ -180,8 +162,6 @@ func (c *Client) ListMessageIDs(query string, maxResults int) ([]string, error) 
 	return ids, nil
 }
 
-// GetMessage fetches a full message. Returns nil (no error) when the
-// message cannot be read, so a single bad id never aborts a run.
 func (c *Client) GetMessage(id string) mailbox.Message {
 	u := fmt.Sprintf("%s/messages/%s?format=full", apiBase, id)
 	var m Message
@@ -201,14 +181,11 @@ func (c *Client) GetMessage(id string) mailbox.Message {
 	return &m
 }
 
-// Trash moves a message to the Trash (Gmail purges after 30 days).
 func (c *Client) Trash(id string) error {
 	u := fmt.Sprintf("%s/messages/%s/trash", apiBase, id)
 	return c.post(u, nil)
 }
 
-// ApplyLabel adds labelID to a message; when archive is true it also
-// removes INBOX so the message leaves the inbox but stays under its label.
 func (c *Client) ApplyLabel(id, labelID string, archive bool) error {
 	u := fmt.Sprintf("%s/messages/%s/modify", apiBase, id)
 	body := map[string]any{"addLabelIds": []string{labelID}}
@@ -218,11 +195,7 @@ func (c *Client) ApplyLabel(id, labelID string, archive bool) error {
 	return c.post(u, body)
 }
 
-// Send delivers an HTML email from the authenticated account. The OAuth
-// token must carry the gmail.send scope (it does: readonly+send+modify).
-// Used by the report mode to mail the period digest to the user.
 func (c *Client) Send(from, to, subject, htmlBody string) error {
-	// Encode the Subject per RFC 2047 so accents survive (e.g. "Revisão").
 	encSubject := "=?UTF-8?B?" + base64.StdEncoding.EncodeToString([]byte(subject)) + "?="
 	var msg strings.Builder
 	fmt.Fprintf(&msg, "From: %s\r\n", from)
@@ -238,8 +211,6 @@ func (c *Client) Send(from, to, subject, htmlBody string) error {
 	return c.post(u, map[string]any{"raw": raw})
 }
 
-// EnsureLabels returns a name->id map for every name, creating any that do
-// not yet exist on the account.
 func (c *Client) EnsureLabels(names []string) (map[string]string, error) {
 	u := apiBase + "/labels"
 	var list struct {
@@ -280,8 +251,6 @@ func (c *Client) EnsureLabels(names []string) (map[string]string, error) {
 	}
 	return result, nil
 }
-
-// --- low-level helpers ---
 
 type apiError struct {
 	Code    int    `json:"code"`

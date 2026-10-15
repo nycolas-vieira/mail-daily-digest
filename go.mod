@@ -1,3 +1,3 @@
-module github.com/nycolas-vieira/gmail-daily-digest
+module github.com/nycolas-vieira/mail-daily-digest
 
 go 1.26

@@ -2,7 +2,7 @@
 services:
   ollama:
     image: ollama/ollama:latest
-    container_name: gdd-ollama
+    container_name: mdd-ollama
     volumes:
       - ollama-models:/root/.ollama
     ports:
@@ -11,7 +11,7 @@ services:
 
   organizer:
     build: .
-    image: gmail-daily-digest:3.0.0
+    image: mail-daily-digest:3.0.0
     depends_on:
       - ollama
     user: "${UID:-1000}:${GID:-1000}"
@@ -23,7 +23,7 @@ services:
     volumes:
       - ./config.json:/app/config.json:ro
       - ${MAIL_CLI_DIR:-${HOME}/.config/mail-cli}/organizer-blocklist.json:/data/.config/mail-cli/organizer-blocklist.json
-      - ${DIGEST_DATA_DIR:-${HOME}/.config/gmail-daily-digest}:/data/.config/gmail-daily-digest
+      - ${DIGEST_DATA_DIR:-${HOME}/.config/mail-daily-digest}:/data/.config/mail-daily-digest
       - ${DIGEST_REPORT_DIR:-${HOME}/repos/memories/inbox/gmail-organizer}:/data/repos/memories/inbox/gmail-organizer
     command: ["-config", "/app/config.json"]
 

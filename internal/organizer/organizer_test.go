@@ -3,7 +3,7 @@ package organizer
 import (
 	"testing"
 
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/config"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/config"
 )
 
 func TestIsOwn(t *testing.T) {
@@ -15,10 +15,10 @@ func TestIsOwn(t *testing.T) {
 
 	cases := map[string]bool{
 		"owner@example.com":    true,
-		"OWNER@EXAMPLE.COM":    true, // case-insensitive
-		"  owner@work.example": true, // trimmed
-		"someone@else.com":        false,
-		"":                        false,
+		"OWNER@EXAMPLE.COM":    true,
+		"  owner@work.example": true,
+		"someone@else.com":     false,
+		"":                     false,
 	}
 	for addr, want := range cases {
 		if got := o.isOwn(addr); got != want {
@@ -30,8 +30,8 @@ func TestIsOwn(t *testing.T) {
 func TestExtractAddr(t *testing.T) {
 	cases := map[string]string{
 		`"Gmail Organizer" <owner@example.com>`: "owner@example.com",
-		"plain@addr.com":       "plain@addr.com",
-		"  Spaced <x@y.com>  ": "x@y.com",
+		"plain@addr.com":                        "plain@addr.com",
+		"  Spaced <x@y.com>  ":                  "x@y.com",
 	}
 	for in, want := range cases {
 		if got := extractAddr(in); got != want {

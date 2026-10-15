@@ -1,18 +1,3 @@
-// gmail-daily-digest V3: a local Go binary that organizes one or more
-// Gmail inboxes with a local Ollama model. It replaces the Apps Script
-// runtime (Code.gs + Gemini); see docs/CHANGELOG.md for the migration.
-//
-// Modes (mutually exclusive, default is organize):
-//
-//	gmail-daily-digest                 organize every account, accumulate state
-//	gmail-daily-digest -dry-run        same, but take no action and persist nothing
-//	gmail-daily-digest -report         render the period digest, deliver it, then reset
-//	gmail-daily-digest -reset          clear counters and start a fresh period
-//	gmail-daily-digest -promote <addr> move a sender from SOFT to HARD (auto-trash)
-//
-// The repo is public: no secret is read from source. Everything sensitive
-// (OAuth client, refresh tokens, learned senders) lives in the git-ignored
-// config.json + state.json + blocklist produced by scripts/bootstrap-config.sh.
 package main
 
 import (
@@ -22,13 +7,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/classify"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/config"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/deliver"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/gmail"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/organizer"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/outlook"
-	"github.com/nycolas-vieira/gmail-daily-digest/internal/report"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/classify"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/config"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/deliver"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/gmail"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/organizer"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/outlook"
+	"github.com/nycolas-vieira/mail-daily-digest/internal/report"
 )
 
 func main() {
@@ -83,8 +68,6 @@ func run(configPath string, dryRun, doReport, doReset bool, promote, outlookAuth
 	}
 }
 
-// authOutlook runs the device-code flow for one outlook account and seeds its
-// token store. One-time (the refresh token then auto-rotates per run).
 func authOutlook(cfg *config.Config, name string) error {
 	acct := cfg.AccountByName(name)
 	if acct == nil {
@@ -99,9 +82,6 @@ func authOutlook(cfg *config.Config, name string) error {
 	return outlook.DeviceCode(cfg.OutlookClientID, outlook.TokenPath(cfg.OutlookTokenDir, name))
 }
 
-// promoteSender moves one sender from SOFT to HARD, the manual decision the
-// report asks the user to make. It is the only writer to the blocklist
-// besides the auto-learn path.
 func promoteSender(cfg *config.Config, addr string) error {
 	bl, err := config.LoadBlocklist(cfg.BlocklistPath)
 	if err != nil {
@@ -168,9 +148,6 @@ func generateReport(cfg *config.Config, st *report.State, now time.Time) error {
 	}
 	fmt.Println("report saved:", path)
 
-	// Deliver on the optional channels (email + Echo/Telegram). Best-effort:
-	// a delivery failure is logged but must not block the period reset, or a
-	// transient SMTP/webhook error would replay the same window forever.
 	sum := deliver.Summary{
 		PeriodStart:    st.PeriodStart,
 		PeriodEnd:      now,
@@ -191,9 +168,6 @@ func generateReport(cfg *config.Config, st *report.State, now time.Time) error {
 	return nil
 }
 
-// deliverReport sends the digest on every configured channel. Each channel
-// is independent and best-effort: an unconfigured one is skipped, a failing
-// one is logged and the others still run.
 func deliverReport(cfg *config.Config, sum deliver.Summary) {
 	if cfg.Report.Email != "" {
 		acct := cfg.AccountByName(cfg.Report.FromAccount)

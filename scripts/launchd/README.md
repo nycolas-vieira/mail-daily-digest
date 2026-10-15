@@ -1,4 +1,4 @@
-# launchd scheduling for gmail-daily-digest V3
+# launchd scheduling for mail-daily-digest V3
 
 This replaces the old `cron` schedule with `launchd`. The reason is the
 sleep gap: macOS `cron` does NOT fire while the Mac is asleep and never
@@ -14,11 +14,34 @@ which waits for the network to come up before invoking the container.
 
 | File | Purpose | Schedule |
 |------|---------|----------|
-| `com.nyc.gmail-digest.organize.plist` | organize pass | 07:00 and 19:00 local |
-| `com.nyc.gmail-digest.report.plist` | digest + counter reset | 07:30 and 19:30 local |
+| `com.nyc.mail-digest.organize.plist` | organize pass | 07:00 and 19:00 local |
+| `com.nyc.mail-digest.report.plist` | digest + counter reset | 07:30 and 19:30 local |
 
-Both point at `/Users/nycolasvieira/repos/gmail-daily-digest/scripts/run-organizer.sh`
-and log to `/Users/nycolasvieira/.local/logs/gmail-daily-digest.log`.
+Both point at `<repo>/scripts/run-organizer.sh` and log to
+`~/.local/logs/mail-daily-digest.log`. launchd does not expand `~` or `$HOME`,
+so the plists ship with a `__HOME__` placeholder that the install step
+replaces with your home directory. They assume the repo is cloned at
+`~/repos/mail-daily-digest`.
+
+## What the wrapper guards against
+
+`scripts/run-organizer.sh` exists because a launchd job fires the moment the
+Mac wakes, often before the network is up: DNS fails, the OAuth refresh 500s
+and the run dies. Before invoking the container it:
+
+1. Puts the Docker CLI on `PATH` (launchd's default `PATH` does not include
+   `/usr/local/bin`, `/opt/homebrew/bin` or the Docker Desktop bin dir).
+2. Starts Colima if the Docker daemon is down. Colima does not reliably
+   auto-start on boot (its brew-services agent has been seen in an error
+   state), so a stopped runtime would otherwise kill every scheduled run.
+3. Waits for `oauth2.googleapis.com` to resolve, up to 10 tries 6 s apart, and
+   aborts non-zero if it never does.
+4. Runs `docker compose run --rm --no-deps organizer`, passing any extra args
+   through, and appends everything to the log.
+
+Trap: bash sets `$UID` itself and marks it readonly, so `UID=$(id -u) docker
+compose ...` fails with `UID: readonly variable`. The wrapper exports the
+`UID` bash already holds and computes only `GID`.
 
 ## Ollama endpoint (important, no config.json edit needed)
 
@@ -45,20 +68,20 @@ behavior.
 
 ```bash
 # 1. Make sure the wrapper is executable (it ships +x, this is a safety net).
-chmod +x /Users/nycolasvieira/repos/gmail-daily-digest/scripts/run-organizer.sh
+chmod +x ~/repos/mail-daily-digest/scripts/run-organizer.sh
 
-# 2. Copy the plists into your user LaunchAgents dir.
-cp /Users/nycolasvieira/repos/gmail-daily-digest/scripts/launchd/com.nyc.gmail-digest.organize.plist \
-   ~/Library/LaunchAgents/
-cp /Users/nycolasvieira/repos/gmail-daily-digest/scripts/launchd/com.nyc.gmail-digest.report.plist \
-   ~/Library/LaunchAgents/
+# 2. Render the plists into your user LaunchAgents dir.
+for job in organize report; do
+  sed "s#__HOME__#$HOME#g" ~/repos/mail-daily-digest/scripts/launchd/com.nyc.mail-digest.$job.plist \
+    > ~/Library/LaunchAgents/com.nyc.mail-digest.$job.plist
+done
 
 # 3. Load them (the -w flag marks them enabled persistently).
-launchctl load -w ~/Library/LaunchAgents/com.nyc.gmail-digest.organize.plist
-launchctl load -w ~/Library/LaunchAgents/com.nyc.gmail-digest.report.plist
+launchctl load -w ~/Library/LaunchAgents/com.nyc.mail-digest.organize.plist
+launchctl load -w ~/Library/LaunchAgents/com.nyc.mail-digest.report.plist
 
 # 4. Confirm they are registered.
-launchctl list | grep gmail-digest
+launchctl list | grep mail-digest
 ```
 
 ## Test a run on demand
@@ -67,46 +90,25 @@ launchctl list | grep gmail-digest
 first), independent of the calendar slot:
 
 ```bash
-# Run the hourly organize pass now.
-launchctl kickstart -k gui/$(id -u)/com.nyc.gmail-digest.organize
+# Run the organize pass now.
+launchctl kickstart -k gui/$(id -u)/com.nyc.mail-digest.organize
 
 # Run the report pass now.
-launchctl kickstart -k gui/$(id -u)/com.nyc.gmail-digest.report
+launchctl kickstart -k gui/$(id -u)/com.nyc.mail-digest.report
 
 # Watch the log.
-tail -f /Users/nycolasvieira/.local/logs/gmail-daily-digest.log
+tail -f ~/.local/logs/mail-daily-digest.log
 ```
 
-The first container run builds the `gmail-daily-digest:3.0.0` image, so it
+The first container run builds the `mail-daily-digest:3.0.0` image, so it
 will be slower; later runs reuse the image. Make sure Docker Desktop is
 running (the wrapper aborts non-zero with a logged error if it is not).
 
 ## Uninstall
 
 ```bash
-launchctl unload -w ~/Library/LaunchAgents/com.nyc.gmail-digest.organize.plist
-launchctl unload -w ~/Library/LaunchAgents/com.nyc.gmail-digest.report.plist
-rm ~/Library/LaunchAgents/com.nyc.gmail-digest.organize.plist
-rm ~/Library/LaunchAgents/com.nyc.gmail-digest.report.plist
+launchctl unload -w ~/Library/LaunchAgents/com.nyc.mail-digest.organize.plist
+launchctl unload -w ~/Library/LaunchAgents/com.nyc.mail-digest.report.plist
+rm ~/Library/LaunchAgents/com.nyc.mail-digest.organize.plist
+rm ~/Library/LaunchAgents/com.nyc.mail-digest.report.plist
 ```
-
-## Manual step: remove the old cron lines (do this AFTER launchd is verified)
-
-The old schedule is still in your crontab and will double-run alongside
-launchd until you remove it. Once you have confirmed a launchd run worked
-(check the log), edit the crontab and delete the three lines under the
-`=== gmail-daily-digest V3 ===` header:
-
-```bash
-crontab -e
-```
-
-Delete the header comment and these lines:
-
-```
-0 * * * *  /Users/nycolasvieira/bin/gmail-daily-digest -config /Users/nycolasvieira/repos/gmail-daily-digest/config.json >> /Users/nycolasvieira/.local/logs/gmail-daily-digest.log 2>&1
-40 7,19 * * * /Users/nycolasvieira/bin/gmail-daily-digest -config ... -report >> ... 2>&1
-```
-
-(There are 3 lines counting the header comment.) Save and exit. Verify with
-`crontab -l | grep gmail` returning nothing.
