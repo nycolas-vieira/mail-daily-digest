@@ -39,3 +39,35 @@ func TestExtractAddr(t *testing.T) {
 		}
 	}
 }
+
+func TestWorkPeerAndInvite(t *testing.T) {
+	cfg := &config.Config{Accounts: []config.Account{
+		{Name: "personal", Email: "owner@gmail.com"},
+		{Name: "moonxi", Email: "owner@work.example"},
+	}}
+	o := New(cfg, nil, nil, nil, false)
+
+	peers := map[string]bool{
+		"colleague@work.example": true,
+		"COLLEAGUE@WORK.EXAMPLE": true,
+		"stranger@gmail.com":     false,
+		"news@substack.com":      false,
+	}
+	for addr, want := range peers {
+		if got := o.isWorkPeer(addr); got != want {
+			t.Errorf("isWorkPeer(%q) = %v, want %v", addr, got, want)
+		}
+	}
+
+	invites := map[string]bool{
+		"Convite atualizado: Team Weekly - Semanal": true,
+		"Invitation: Planning @ Tue":                true,
+		"Fwd: Apollo CRM Stage Progression":         false,
+		"The Batch: as novidades de IA":             false,
+	}
+	for subj, want := range invites {
+		if got := isCalendarInvite(subj); got != want {
+			t.Errorf("isCalendarInvite(%q) = %v, want %v", subj, got, want)
+		}
+	}
+}

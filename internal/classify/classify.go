@@ -71,6 +71,7 @@ REGRAS QUE O MODELO COSTUMA ERRAR (preste atenção):
 - Pesquisa de satisfação / "avalie seu atendimento" = LIXO.
 - NUNCA mande pro LIXO: email de segurança, fatura/cobrança real, documento fiscal, ou mensagem de pessoa. Na dúvida entre LIXO e algo transacional, NÃO use LIXO.
 - Seja consistente: o mesmo tipo de email deve cair sempre na mesma categoria.
+- NEWSLETTER é só conteúdo editorial publicado para uma lista. NUNCA é NEWSLETTER: convite de calendário ou reunião (Invitation, Convite, Updated invitation), encaminhamento (Fwd:/Enc:) ou mensagem de colega de trabalho, conversa com account manager/vendedor escrevendo para o usuário, disparo de teste de um domínio do próprio usuário, e prep/recap de reunião do Fireflies ou de outro assistente de reunião. Convite de reunião, encaminhamento de colega e mensagem de pessoa são PESSOAL, nunca LIXO (LIXO vai para a lixeira); notificação de ferramenta sobre a própria conta ou reunião do usuário é OUTROS.
 
 EXEMPLOS:
 - "Débora é uma nova sugestão de amizade" (facebookmail) -> LIXO
@@ -86,6 +87,10 @@ EXEMPLOS:
 - "Seu pedido do iFood saiu para entrega" -> PESSOAL
 - "Nota Fiscal Eletrônica - NFe 12345 (PDF)" -> DOCUMENTO
 - "Pesquisa: como foi seu atendimento na Localiza?" -> LIXO
+- "Invitation: Team Weekly @ Tue 14:00" -> PESSOAL (convite de reunião, NÃO NEWSLETTER, NÃO LIXO)
+- "Convite atualizado: Fischer US - On-boarding" (colega) -> PESSOAL (NÃO LIXO)
+- "Fwd: Apollo CRM Stage Progression - Implementation Plan" (colega) -> PESSOAL (NÃO NEWSLETTER, NÃO LIXO)
+- "Meeting Prep: Planning Apollo" (Fireflies) -> OUTROS (NÃO NEWSLETTER)
 
 reason: no máximo uma frase curta. alert: só quando URGENTE ou vencimento nas próximas 72h, senão deixe vazio.`
 

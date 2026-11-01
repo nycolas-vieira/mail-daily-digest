@@ -48,6 +48,7 @@ type Organizer struct {
 	cls    *classify.Classifier
 	dryRun bool
 	own    map[string]bool
+	peers  map[string]bool
 }
 
 func New(cfg *config.Config, bl *config.Blocklist, st *report.State, cls *classify.Classifier, dryRun bool) *Organizer {
@@ -57,7 +58,43 @@ func New(cfg *config.Config, bl *config.Blocklist, st *report.State, cls *classi
 			own[e] = true
 		}
 	}
-	return &Organizer{cfg: cfg, bl: bl, st: st, cls: cls, dryRun: dryRun, own: own}
+	peers := make(map[string]bool)
+	for e := range own {
+		if d := domainOf(e); d != "" && !publicMailDomains[d] {
+			peers[d] = true
+		}
+	}
+	return &Organizer{cfg: cfg, bl: bl, st: st, cls: cls, dryRun: dryRun, own: own, peers: peers}
+}
+
+// The local classifier labels colleague mail and meeting invites as NEWSLETTER or
+// LIXO (which trashes them), so these two cases never reach it.
+var publicMailDomains = map[string]bool{
+	"gmail.com": true, "googlemail.com": true, "hotmail.com": true, "outlook.com": true,
+	"live.com": true, "yahoo.com": true, "icloud.com": true,
+}
+
+var invitePrefixes = []string{"convite:", "convite atualizado:", "invitation:", "updated invitation:"}
+
+func domainOf(addr string) string {
+	if i := strings.LastIndexByte(addr, '@'); i >= 0 {
+		return addr[i+1:]
+	}
+	return ""
+}
+
+func (o *Organizer) isWorkPeer(addr string) bool {
+	return o.peers[domainOf(strings.ToLower(strings.TrimSpace(addr)))]
+}
+
+func isCalendarInvite(subject string) bool {
+	low := strings.ToLower(strings.TrimSpace(subject))
+	for _, p := range invitePrefixes {
+		if strings.HasPrefix(low, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (o *Organizer) isOwn(addr string) bool {
@@ -123,6 +160,9 @@ func (o *Organizer) processAccount(ctx context.Context, acct config.Account) err
 				o.act(client, "label:"+labelNames["PESSOAL"], m, acct, false, id)
 			}
 			log.Printf("[%s] self-mail (skip LLM) %s", acct.Name, extractAddr(from))
+		case o.isWorkPeer(extractAddr(from)) || isCalendarInvite(m.Header("Subject")):
+			o.act(client, "label:"+labelNames["PESSOAL"], m, acct, false, labelMap[labelNames["PESSOAL"]])
+			log.Printf("[%s] peer/invite->PESSOAL (skip LLM) %s", acct.Name, extractAddr(from))
 		case o.bl.IsPriority(from):
 			o.act(client, "label:"+labelNames["URGENTE"], m, acct, false, labelMap[labelNames["URGENTE"]])
 			o.st.AddAlert(fmt.Sprintf("%s: email de %s", acct.Name, extractAddr(from)))

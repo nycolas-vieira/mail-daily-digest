@@ -3,7 +3,7 @@
 A local Go binary that organizes one or more **Gmail and Outlook** inboxes: it
 trashes junk, labels/categorizes and archives the rest by category, and writes
 a periodic Markdown digest. Classification runs **entirely on your machine**
-with a local [Ollama](https://ollama.com) model (`qwen2.5:7b`) - no cloud LLM,
+with a local [Ollama](https://ollama.com) model (`gemma3:12b`) - no cloud LLM,
 no API key, no per-email cost.
 
 Both providers share one pipeline (classify + blocklist); each implements the
@@ -88,7 +88,7 @@ mail-daily-digest/
 - [Go](https://go.dev) 1.26+
 - [Ollama](https://ollama.com) running locally, with the model pulled:
   ```bash
-  ollama pull qwen2.5:7b
+  ollama pull gemma3:12b
   ```
 - An existing authenticated [mail-cli](https://github.com/your-repo/mail-cli)
   install at `~/.config/mail-cli` (OAuth client in `credentials.json`,
@@ -215,7 +215,7 @@ data dir (state + reports). `credentials.json` and the token pickles are
 ```bash
 # 1. Start Ollama and pull the model (once)
 docker compose up -d ollama
-docker compose exec ollama ollama pull qwen2.5:7b
+docker compose exec ollama ollama pull gemma3:12b
 
 # 2. Generate config.json on the host as usual
 ./scripts/bootstrap-config.sh
@@ -277,7 +277,7 @@ Matching is a case-insensitive substring test against the `From` header.
 
 ## Customization
 
-- **Model:** `ollama.model` in `config.json` (default `qwen2.5:7b`). Smaller
+- **Model:** `ollama.model` in `config.json` (default `gemma3:12b`). Smaller
   models (e.g. `llama3.2:3b`) classify noticeably worse.
 - **Categories / labels / archive behavior:** `internal/organizer/organizer.go`
   (`labelNames`, `archiveCategories`).

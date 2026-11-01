@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **:date: ORDER**: Entries are organized in **descending chronological order** (newest first).
 
+## [4.1.0] - 2026-11-01 - colega e convite fora do LLM, classificador no gemma3:12b
+
+### Changed
+
+- **E-mail de colega e convite de reunião pulam o LLM e viram PESSOAL.** O `gemma3:4b` rotulava esses e-mails como NEWSLETTER (16 foram parar em `news/` do vault) ou LIXO, que manda para a lixeira. Remetente de domínio de trabalho de uma conta configurada (domínio não público) e assunto de convite (`Convite:`, `Convite atualizado:`, `Invitation:`, `Updated invitation:`) agora são decididos no organizer, como o self-mail.
+- Prompt do classificador: NEWSLETTER é só conteúdo editorial de lista; encaminhamento, conversa com account manager, disparo de teste e prep/recap do Fireflies não são.
+
+### Fixed
+
+- **Promoção não vira mais CONTAS.** O `gemma3:4b` classificava cupom, oferta, vaga e promoção como CONTAS e repetia no `reason` o valor do exemplo do prompt ("R$ 1.240,00"), presente no log antes desta versão. O modelo passa a ser `gemma3:12b`: no mesmo inbox, os 4 falsos CONTAS (Shopee, Drogaria Raia, LinkedIn, Udemy) saíram LIXO com o motivo certo. Custo: cerca de 8 a 10 s por e-mail, contra 3 s.
+
 ## [4.0.0] - 2026-10-14 - rename para mail-daily-digest
 
 ### Changed
