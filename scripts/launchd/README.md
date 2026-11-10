@@ -31,9 +31,8 @@ and the run dies. Before invoking the container it:
 
 1. Puts the Docker CLI on `PATH` (launchd's default `PATH` does not include
    `/usr/local/bin`, `/opt/homebrew/bin` or the Docker Desktop bin dir).
-2. Starts Colima if the Docker daemon is down. Colima does not reliably
-   auto-start on boot (its brew-services agent has been seen in an error
-   state), so a stopped runtime would otherwise kill every scheduled run.
+2. Starts OrbStack (`orbctl start`) if the Docker daemon is down, so a
+   stopped runtime does not kill every scheduled run.
 3. Waits for `oauth2.googleapis.com` to resolve, up to 10 tries 6 s apart, and
    aborts non-zero if it never does.
 4. Runs `docker compose run --rm --no-deps organizer`, passing any extra args

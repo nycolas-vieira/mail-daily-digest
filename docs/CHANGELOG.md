@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **:date: ORDER**: Entries are organized in **descending chronological order** (newest first).
 
+## [4.1.1] - 2026-11-10 - runtime Docker passa a ser o OrbStack
+
+### Changed
+
+- `run-organizer.sh` sobe o OrbStack (`orbctl start`) quando o daemon Docker está fora, no lugar do `colima start`. O Colima foi desinstalado da máquina. README do `scripts/launchd/` atualizado.
+
 ## [4.1.0] - 2026-11-01 - colega e convite fora do LLM, classificador no gemma3:12b
 
 ### Changed

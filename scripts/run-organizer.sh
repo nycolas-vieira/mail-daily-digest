@@ -26,15 +26,15 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 if ! docker info >/dev/null 2>&1; then
-  if command -v colima >/dev/null 2>&1; then
-    log "Docker daemon down - starting Colima..."
-    colima start >>"$LOG_FILE" 2>&1 || true
+  if command -v orbctl >/dev/null 2>&1; then
+    log "Docker daemon down - starting OrbStack..."
+    orbctl start >>"$LOG_FILE" 2>&1 || true
   fi
   if ! docker info >/dev/null 2>&1; then
     log "ERROR: Docker daemon is not running and could not be started. Aborting."
     exit 1
   fi
-  log "Colima is up."
+  log "OrbStack is up."
 fi
 
 ready=0
