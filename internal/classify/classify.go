@@ -104,6 +104,7 @@ func (c *Classifier) Classify(ctx context.Context, accountName, accountEmail str
 			{"role": "user", "content": user},
 		},
 		"stream":  false,
+		"think":   false,
 		"format":  schema,
 		"options": map[string]any{"temperature": 0.1},
 	}

@@ -18,7 +18,7 @@
   ],
   "ollama": {
     "endpoint": "http://localhost:11434",
-    "model": "gemma3:12b"
+    "model": "gemma4:e4b-it-q4_K_M"
   },
   "report": {
     "email": "",

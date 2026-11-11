@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **:date: ORDER**: Entries are organized in **descending chronological order** (newest first).
 
+## [4.2.0] - 2026-11-10 - classificador no gemma4:e4b-it-q4_K_M
+
+### Changed
+
+- O classificador sai do `gemma3:12b` para o `gemma4:e4b-it-q4_K_M`, o modelo local único da máquina, e a chamada ao `/api/chat` passa a mandar `think: false` (o Gemma 4 pensa por padrão e ficaria 5x mais lento). Bake-off nos 26 e-mails reais do inbox, gabarito revisado à mão: e4b 22/26, gemma3:12b 17/26, gemma3:4b 13/26. Latência de ~6 s para ~2,3 s por e-mail.
+
+Validação: `-dry-run` com proxy de captura: 32 chamadas, todas no `gemma4:e4b-it-q4_K_M` com `think: false`.
+
 ## [4.1.1] - 2026-11-10 - runtime Docker passa a ser o OrbStack
 
 ### Changed

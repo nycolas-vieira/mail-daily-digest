@@ -6,7 +6,7 @@ CREDS="$MAIL_CLI_DIR/credentials.json"
 ACCOUNTS_DIR="$MAIL_CLI_DIR/accounts"
 VENV_PY="$MAIL_CLI_DIR/venv/bin/python"
 OUT="config.json"
-MODEL="qwen2.5:7b"
+MODEL="gemma4:e4b-it-q4_K_M"
 FORCE=0
 
 while [ $# -gt 0 ]; do

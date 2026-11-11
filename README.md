@@ -3,7 +3,7 @@
 A local Go binary that organizes one or more **Gmail and Outlook** inboxes: it
 trashes junk, labels/categorizes and archives the rest by category, and writes
 a periodic Markdown digest. Classification runs **entirely on your machine**
-with a local [Ollama](https://ollama.com) model (`gemma3:12b`) - no cloud LLM,
+with a local [Ollama](https://ollama.com) model (`gemma4:e4b-it-q4_K_M`) - no cloud LLM,
 no API key, no per-email cost.
 
 Both providers share one pipeline (classify + blocklist); each implements the
@@ -88,7 +88,7 @@ mail-daily-digest/
 - [Go](https://go.dev) 1.26+
 - [Ollama](https://ollama.com) running locally, with the model pulled:
   ```bash
-  ollama pull gemma3:12b
+  ollama pull gemma4:e4b-it-q4_K_M
   ```
 - An existing authenticated [mail-cli](https://github.com/your-repo/mail-cli)
   install at `~/.config/mail-cli` (OAuth client in `credentials.json`,
@@ -215,7 +215,7 @@ data dir (state + reports). `credentials.json` and the token pickles are
 ```bash
 # 1. Start Ollama and pull the model (once)
 docker compose up -d ollama
-docker compose exec ollama ollama pull gemma3:12b
+docker compose exec ollama ollama pull gemma4:e4b-it-q4_K_M
 
 # 2. Generate config.json on the host as usual
 ./scripts/bootstrap-config.sh
@@ -277,8 +277,10 @@ Matching is a case-insensitive substring test against the `From` header.
 
 ## Customization
 
-- **Model:** `ollama.model` in `config.json` (default `gemma3:12b`). Smaller
-  models (e.g. `llama3.2:3b`) classify noticeably worse.
+- **Model:** `ollama.model` in `config.json` (default `gemma4:e4b-it-q4_K_M`). It is a thinking model: the request
+  sends `think: false`, otherwise it spends ~600 tokens reasoning and takes 5x longer.
+  Model choice was measured in a 2026-11-10 bake-off on 26 real inbox emails:
+  gemma4:e4b 22/26, gemma3:12b 17/26, gemma3:4b 13/26.
 - **Categories / labels / archive behavior:** `internal/organizer/organizer.go`
   (`labelNames`, `archiveCategories`).
 - **Classification prompt:** `systemPrompt` in `internal/classify/classify.go`.

@@ -46,8 +46,8 @@ compose ...` fails with `UID: readonly variable`. The wrapper exports the
 
 `docker-compose.yml` pins `OLLAMA_ENDPOINT=http://ollama:11434` (the compose
 `ollama` service). That service has NO models pulled (it would need an ~8 GB
-pull). The host already runs Ollama on `localhost:11434` with `gemma3:4b` and
-`gemma3:12b` pulled.
+pull). The host already runs Ollama on `localhost:11434` with `gemma4:e4b-it-q4_K_M`
+pulled (the single local model shared by Argus, Kairos and this digest).
 
 So the wrapper exports `OLLAMA_ENDPOINT=http://host.docker.internal:11434`,
 which points the container at the HOST's Ollama and reuses the already-pulled
